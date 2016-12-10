@@ -35,7 +35,7 @@ def deviceDiscovery() {
     def options = [:]
     def devices = getVerifiedDevices()
     devices.each {
-        def value = it.value.name ?: "UPnP Device ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
+        def value = it.value.name ?: "Media Server ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
         def key = it.value.mac
         options["${key}"] = value
     }
@@ -91,7 +91,7 @@ Map verifiedDevices() {
 	def devices = getVerifiedDevices()
 	def map = [:]
 	devices.each {
-		def value = it.value.name ?: "UPnP Device ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
+		def value = it.value.name ?: "Media Server ${it.value.ssdpUSN.split(':')[1][-3..-1]}"
 		def key = it.value.mac
 		map["${key}"] = value
 	}
@@ -121,21 +121,21 @@ def getDevices() {
 }
 
 def addDevices() {
+	log.debug("addDevices()")
     getDevices().each{ device ->
-        log.debug("a?${getChildDevice(device.value.mac)} != null")
-    	log.debug("s?${selectedDevices} != ${device.value.mac}")
-    	if(selectedDevices != device.value.mac || getChildDevice(device.value.mac) != null){
+    	if(selectedDevices == device.value.mac || getChildDevice(device.value.mac) != null){
         	return
         }
     	log.debug("Creating Plex Server Device from: ${device}")
-        addChildDevice("kkessler", "Plex Server", device.value.mac, device.value.hub, [
-            "label": device.value.name ?: "Plex Server",
+        def newdev = addChildDevice("kkessler", "Plex Server", device.value.mac, device.value.hub, [
+            "label": device.value.model ?: "Plex Server",
             "data": [
                 "mac": device.value.mac,
                 "ip": device.value.networkAddress,
                 "port": device.value.deviceAddress
             ]
         ])
+        log.debug("created:${newdev}")
     }
 }
 
