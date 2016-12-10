@@ -16,71 +16,69 @@ metadata {
 		capability "Actuator"
 		capability "Button"
 		capability "Sensor"
+        capability "Media Controller"
         
-        command "push"
+        attribute "currentActivity", "String"
+        
+        command "scanAllLibraries"
 	}
 
 	simulator {
 
 	}
 	tiles {
- 		standardTile("push", "device.button", width: 1, height: 1, decoration: "flat") {
-			state "default", label: "Scan", backgroundColor: "#ffffff", action: "push"
-		} 
+ 		standardTile("scanAllLibraries", "device.button", width: 1, height: 1, decoration: "flat") {
+			state "default", label: "Scan All", backgroundColor: "#ffffff", action: "scanAllLibraries"
+		}
 		main "button"
-		details(["button","push"])
+		details(["button","scanAllLibraries"])
 	}
 }
-import groovy.json.JsonSlurper
 
 def parse(String description) {
-	log.debug("d:${description}")
     def msg = parseLanMessage(description)
-    log.debug("m:${msg}")
+    if(msg.body != null){
+  		refreshLibraries(msg.json)
+    }
 }
 
-def push() {
-	sendEvent(name: "button", value: "pushed", data: [buttonNumber: "1"], descriptionText: "$device.displayName button 1 was pushed", isStateChange: true)
+physicalgraph.device.HubAction scanAllLibraries() {
+	sendEvent(name: "button", value: "pushed", data: [buttonNumber: "1"], descriptionText: "$device.displayName Scan All Libraries was activated", isStateChange: true)
     return new physicalgraph.device.HubAction(
         method: "GET",
         path: "/library/sections",
         headers: [
-            HOST: getHostAddress()
+            HOST: getHostAddress(),
+            'Accept': 'application/json'
         ]
 	)
 }
 
-def resphandler(resp,data) {
-    def libraryId = 0
-    def jsonSlurper = new JsonSlurper()
-    def object = jsonSlurper.parseText(resp.getData())
-    object["_children"].each{
-		if("${it?.title}" == libraryName){
+//refresh all the libraries that are returned in the json from /library/sections/
+def refreshLibraries(HashMap msg){
+	int libraryId=0
+    msg["_children"].each{
         	libraryId = it?._children[0]?.id
-        }
+    		if(libraryId == 0 || libraryId == null){
+            	return
+            }
+            log.debug("refreshing ${it?.title}")
+            sendHubCommand( new physicalgraph.device.HubAction(
+                method: "GET",
+                path: "/library/sections/${libraryId}/refresh",
+                headers: [
+                    HOST: getHostAddress(),
+                    'Accept': 'application/json'
+                ]
+            ))
+            libraryId=0
     }
-    log.debug("libid:${libraryId}")
-    if(libraryId == 0){
-    	return
-    }
-    def params = [
-        uri: "https://${appSettings.URL}:${appSettings.PORT}",
-        path: "/library/sections/${libraryId}/refresh",
-        headers: ['X-Plex-Token' : "${plexToken}"]
-    ]
-    httpGet(params)
-}
-
-// gets the address of the hub
-private getCallBackAddress() {
-    return device.hub.getDataValue("localIP") + ":" + device.hub.getDataValue("localSrvPortTCP")
 }
 
 // gets the address of the device
-private getHostAddress() {
+private String getHostAddress() {
     def ip = getDataValue("ip")
     def port = getDataValue("port")
-
     if (!ip || !port) {
         def parts = device.deviceNetworkId.split(":")
         if (parts.length == 2) {
@@ -91,8 +89,8 @@ private getHostAddress() {
         }
     }
 
-    log.debug "Using IP: $ip and port: $port for device: ${device.id}"
-    return convertHexToIP(ip) + ":" + convertHexToInt(port)
+	// this is a different port than discovered, so override here to the deault port.
+    return convertHexToIP(ip) + ":32400"
 }
 
 private Integer convertHexToInt(hex) {
