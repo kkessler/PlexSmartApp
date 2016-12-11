@@ -30,8 +30,8 @@ metadata {
  		standardTile("scanAllLibraries", "device.button", width: 1, height: 1, decoration: "flat") {
 			state "default", label: "Scan All", backgroundColor: "#ffffff", action: "scanAllLibraries"
 		}
-		main "button"
-		details(["button","scanAllLibraries"])
+		main "scanAllLibraries"
+		details(["scanAllLibraries"])
 	}
 }
 
